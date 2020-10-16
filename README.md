@@ -41,3 +41,9 @@
         - [PiCAN2 CAN-Bus Hat + WITH Power Supply](https://copperhilltech.com/pican2-can-interface-for-raspberry-pi-with-smps/)
     - The power supply version allows you to power your Roof/Flap control boards and the RPi all off the same 12v battery power.
     - If you'd rather power your Raspberry pi from a different power source, feel free to buy the unit without the Power Supply on-board.
+- [High Endurance micro-SD card](https://www.amazon.com/dp/B084CJLNM4)
+
+### Miscellaneous bits:
+- 4 Conductor Wire ( +12v, Ground, CAN-High, CAN-Low )
+- 4 Position connectors for easy connect/disconnect of low power connections
+
