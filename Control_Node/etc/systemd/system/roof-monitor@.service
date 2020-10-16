@@ -1,0 +1,11 @@
+[Unit]
+Description=Roof CAN-bus Monitor
+
+[Service]
+Restart=always
+RestartSec=1
+ExecStartPre=-/sbin/ip link set %i up type can bitrate 250000
+ExecStart=/usr/bin/roof-monitor.py -m 1 -i %i
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,110 @@
+#########################################################################
+# ascomroof.yaml example
+# by: Michael Kidd
+# at: https://github.com/linuxkidd/CAN-Bus_RoR_Control
+#
+# Structure:
+# device:
+#   operation:
+#     - dev: device
+#       maxwait: seconds
+#       checkonly: True|False
+#     - dev: next-device
+#       maxwait: seconds
+#       checkonly: True|False
+#
+# * Top level 'device' is what was specified to 'ascomroof.py operation device' command line
+#   * Second level 'operation' is what was specified to 'ascomroof.py operation device' command line
+#     * Third level is an array of operations to accomplish the 'operation' on the 'device'
+#       dev: The device to operate on for this step
+#       maxwait: how many seconds to wait for the op to complete before timing out
+#                0 used for 'checkonly' of 'True'
+#               -1 Fire and forget, don't wait
+#               >0 Number of seconds to wait
+#       checkonly: Determine if the step is only a check
+#               True: failure of this Check causes execution to end
+#               False: Execute the step, not just check if the condition is met
+#
+#### Example 1:
+# both:
+#   open:
+#     - dev: roof
+#       maxwait: 180
+#       checkonly: False
+#     - dev: flap
+#       maxwait: 30
+#       checkonly: False
+#
+# -- This sequence above is used for command 'ascomroof.py open both'
+#    The sequence enforces that the 'roof' must be open first, in a maximum of 180 seconds, then the 'flap' will be opened in a maximum of 30 seconds
+#
+#### Example 2:
+# flap:
+#   open:
+#     - dev: roof
+#       maxwait: 0
+#       checkonly: True 
+#     - dev: flap
+#       maxwait: 30
+#       checkonly: False
+#
+# -- This sequence above is used for command 'ascomroof.py open flap'
+#    The sequence first checks that the 'roof' is open, if not, then the command terminates without moving the flap
+#    If the 'roof' is open, then the 'flap' is told to open in a maximum of 30 seconds
+#
+#
+
+both:
+  open:
+    - dev: roof
+      maxwait: 180
+      checkonly: False
+    - dev: flap
+      maxwait: 30
+      checkonly: False
+  close:
+    - dev: flap
+      maxwait: 30
+      checkonly: False
+    - dev: roof
+      maxwait: 180
+      checkonly: False
+  stop:
+    - dev: roof
+      maxwait: -1
+      checkonly: False
+    - dev: flap
+      maxwait: -1
+      checkonly: False
+roof:
+  open:
+    - dev: roof
+      maxwait: 180
+      checkonly: False
+  close:
+    - dev: flap
+      maxwait: 0
+      checkonly: True 
+    - dev: roof
+      maxwait: 180
+      checkonly: False
+  stop:
+    - dev: roof
+      maxwait: -1
+      checkonly: False
+flap:
+  open:
+    - dev: roof
+      maxwait: 0
+      checkonly: True
+    - dev: flap
+      maxwait: 30
+      checkonly: False
+  close:
+    - dev: flap
+      maxwait: 30
+      checkonly: False
+  stop:
+    - dev: flap
+      maxwait: -1
+      checkonly: False
