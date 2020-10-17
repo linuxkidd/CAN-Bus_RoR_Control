@@ -3,7 +3,7 @@
 (This document is a work in progress)
 
 ## Scope:
-- This project provides a fully functioning ASCOM Alpaca compliant roll-off-roof control mechanism, with or without Flap control.
+- This project provides a fully functioning [ASCOM Alpaca](https://ascom-standards.org/api/#/Dome%20Specific%20Methods/get_dome__device_number__shutterstatus) compliant roll-off-roof control mechanism, with or without Flap control.
 - While not an overly advanced project, it does have many parts which work together, thus appears quite complex at first glance.
 - Basic Linux, Arduino and miscellaneous electronics experience will make assembly much easier.
 
