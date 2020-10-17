@@ -224,7 +224,7 @@ void sendStartup() {
 }
 
 void sendState() {
-  int mypos = flap.extended * ( 255 / FLAP_MAX_EXTEND ); // Calculate position in 256 steps
+  int mypos = flap.extended * ( 255.0 / FLAP_MAX_EXTEND ); // Calculate position in 256 steps
   unsigned char stmp[3] = { (unsigned char)flap.state, (unsigned char)flap.desiredState, (unsigned char)mypos };
   if( debug ) {
     Serial.write("Sending State: ");
