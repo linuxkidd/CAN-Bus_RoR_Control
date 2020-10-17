@@ -264,10 +264,11 @@ void readPins() {
 
   } else {
     if( flap.lastPulse + PULSE_TIMEOUT < millis() ) {
-      if( debug && ( flap.state == OPENING || flap.state == CLOSING ) )
+      if( debug && ( flap.state == OPENING || flap.state == CLOSING ) ) {
         Serial.print("Was Opening/Closing, but no pulses in ");
         Serial.print(PULSE_TIMEOUT);
         Serial.println(" ms.");
+      }
       if( flap.state == OPENING ) {
         stopMotion();
         flap.state = OPEN;
