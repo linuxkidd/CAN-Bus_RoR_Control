@@ -16,17 +16,17 @@ boolean debug                    = true;  // Enable debug output
 //   or OPEN_CLOSE
 // below to indicate how the relays should be controlled
 // #define ENABLE_PLUS_DIRECTION
-// #define OPEN_CLOSE
-#define ENABLE_PLUS_DIRECTION
+#define OPEN_CLOSE
+// #define ENABLE_PLUS_DIRECTION
 
 // Uncomment the line below if you have a flap
 // #define HAVE_FLAP
 
 // Uncomment the line below if you have Pier Safety sensor
-// #define HAVE_PIER_SAFETY
+#define HAVE_PIER_SAFETY
 
-//#define CAN_SPEED    (CAN_250KBPS)     // For Uno  CAN-Bus Shield    (16MHz)
-#define CAN_SPEED   (CAN_8M_250KBPS)     // For nano CAN SPI interface  (8MHz)
+#define CAN_SPEED      (CAN_250KBPS)     // For Uno  CAN-Bus Shield    (16MHz)
+//#define CAN_SPEED   (CAN_8M_250KBPS)     // For nano CAN SPI interface  (8MHz)
 #define SPI_CS_PIN              (10)     // Which pin to use for SPI CS with CAN bus interface
 
 #ifdef ENABLE_PLUS_DIRECTION
@@ -91,6 +91,11 @@ boolean debug                    = true;  // Enable debug output
 unsigned char len     =     0;
 unsigned char buf[8];
 unsigned int  rxId    = 0x000;
+
+#ifdef HAVE_PIER_SAFETY
+bool piersafety_laststate = false;
+INT32U piersafety_statetime = 0;
+#endif
 
 void printPacket(unsigned int myrxId, unsigned int mylen, unsigned char mybuf[8]);
 void parseInstruction();
@@ -201,7 +206,11 @@ void loop() {
   }
 
   readPins();
-  if( mystat.controller_received + STATUS_TIMEOUT < millis() && roof.state!=CLOSED && roof.state!=CLOSING && roof.desiredState!=CLOSED && roof.desiredState!=STOP) {
+  if( mystat.controller_received + STATUS_TIMEOUT < millis() 
+    && roof.state!=CLOSED 
+    && roof.state!=CLOSING 
+    && roof.desiredState!=CLOSED 
+    && roof.desiredState!=STOP) {
     if(debug)
       Serial.println("Heartbeat timeout - Closing.");
 
@@ -213,7 +222,11 @@ void loop() {
   }
 
 #ifdef HAVE_FLAP
-  if( mystat.flap_received + STATUS_TIMEOUT < millis() && roof.state!=CLOSED && roof.state!=CLOSING && roof.desiredState!=CLOSED && roof.desiredState!=STOP ) {
+  if( mystat.flap_received + STATUS_TIMEOUT < millis()
+    && roof.state!=CLOSED
+    && roof.state!=CLOSING
+    && roof.desiredState!=CLOSED
+    && roof.desiredState!=STOP ) {
     unsigned char closed[1] = { CLOSED };
     CAN.sendMsgBuf(FLAP_COMMAND_ID,1,1,closed); // Flap Close Command, just in case it's still alive
     closeRoof();
@@ -288,13 +301,21 @@ void sendState() {
 void readPins() {
 #ifdef HAVE_PIER_SAFETY
   if(digitalRead(PIER_SAFE_PIN) == LOW) {
-    if(!roof.isSafe) {
+    if(piersafety_laststate == true) {
+      piersafety_laststate = false;
+      piersafety_statetime = millis();
+    }
+    if(!roof.isSafe && piersafety_laststate == false && piersafety_statetime > 0 && piersafety_statetime + 1000 < millis()) {
       roof.isSafe=1;
       if ( debug )
         Serial.println("Pier now safe.");
     }
   } else {
-    if(roof.isSafe) {
+    if(piersafety_laststate == false) {
+      piersafety_laststate = true;
+      piersafety_statetime = millis();
+    }
+    if(roof.isSafe && piersafety_laststate == true && piersafety_statetime > 0 && piersafety_statetime + 1000 < millis()) {
       roof.isSafe=0;
       if(roof.state==OPENING || roof.state==CLOSING) {
         stopMotion();
@@ -316,8 +337,8 @@ void readPins() {
       }
 #ifdef HAVE_PIER_SAFETY
       roof.overrideSafe=0;
-    }
 #endif
+    }
   } else {
     if(roof.isOpen || roof.state==OPEN) {
       if(debug)
@@ -383,7 +404,9 @@ void parseInstruction() {
     if(debug)
       Serial.println("Received open");
     openRoof();
-  } else if (buf[0] == OROPEN) {
+  }
+#ifdef HAVE_PIER_SAFETY
+  else if (buf[0] == OROPEN) {
     if ( debug )
       Serial.println("Received OVERRIDE open.");
     roof.overrideSafe=1;
@@ -394,6 +417,7 @@ void parseInstruction() {
     roof.overrideSafe=1;
     closeRoof();
   }
+#endif
   sendState();
 }
 
@@ -412,10 +436,6 @@ void openRoof() {
   roof.desiredState=OPEN;
 #ifdef HAVE_PIER_SAFETY
   if(!roof.isSafe && !roof.overrideSafe) {
-//    if ( debug )
-//      Serial.println("Open not allowed - Unsafe.");
-    return;
-  }
 #endif
   if(roof.state!=OPENING && !roof.isOpen) {
     digitalWrite(ROOF_ENABLE_PIN,0);
@@ -427,16 +447,15 @@ void openRoof() {
     roof.state=OPENING;
   }
   delay(50);
+#ifdef HAVE_PIER_SAFETY
+  }
+#endif
 }
 
 void closeRoof() {
   roof.desiredState=CLOSED;
 #ifdef HAVE_PIER_SAFETY
-  if(!roof.isSafe && !roof.overrideSafe) {
-//    if ( debug )
-//      Serial.println("Close not allowed - Unsafe.");
-    return;
-  }
+  if(roof.isSafe || roof.overrideSafe) {
 #endif
   if(roof.state!=CLOSING && !roof.isClosed) {
     digitalWrite(ROOF_ENABLE_PIN,0);
@@ -446,6 +465,9 @@ void closeRoof() {
     roof.state=CLOSING;
   }
   delay(50);
+#ifdef HAVE_PIER_SAFETY
+  }
+#endif
 }
 #endif // ENABLE_PLUS_DIRECTION
 
@@ -463,11 +485,7 @@ void stopMotion() {
 void openRoof() {
   roof.desiredState=OPEN;
 #ifdef HAVE_PIER_SAFETY
-  if(!roof.isSafe && !roof.overrideSafe) {
-//    if ( debug )
-//      Serial.println("Open not allowed - Unsafe.");
-    return;
-  }
+  if(roof.isSafe || roof.overrideSafe) {
 #endif
   if(roof.state!=OPENING && !roof.isOpen) {
     digitalWrite(ROOF_CLOSE_PIN,1);
@@ -477,16 +495,15 @@ void openRoof() {
     roof.state=OPENING;
   }
   delay(50);
+#ifdef HAVE_PIER_SAFETY
+  }
+#endif
 }
 
 void closeRoof() {
   roof.desiredState=CLOSED;
 #ifdef HAVE_PIER_SAFETY
-  if(!roof.isSafe && !roof.overrideSafe) {
-//    if ( debug )
-//      Serial.println("Close not allowed - Unsafe.");
-    return;
-  }
+  if(roof.isSafe || roof.overrideSafe) {
 #endif
   if(roof.state!=CLOSING && !roof.isClosed) {
     digitalWrite(ROOF_OPEN_PIN,1);
@@ -496,6 +513,9 @@ void closeRoof() {
     roof.state=CLOSING;
   }
   delay(50);
+#ifdef HAVE_PIER_SAFETY
+  }
+#endif
 }
 #endif // OPEN_CLOSE
 /*********************************************************************************************************
