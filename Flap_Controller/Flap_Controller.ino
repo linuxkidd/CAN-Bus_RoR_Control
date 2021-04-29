@@ -12,8 +12,8 @@
 
 boolean debug               = false;     // Enable debug output
 
-//#define CAN_SPEED    (CAN_250KBPS)     // For Uno  CAN-Bus Shield    (16MHz)
-#define CAN_SPEED   (CAN_8M_250KBPS)     // For nano CAN SPI interface  (8MHz)
+#define CAN_SPEED      (CAN_250KBPS)     // For Uno  CAN-Bus Shield    (16MHz)
+//#define CAN_SPEED   (CAN_8M_250KBPS)     // For nano CAN SPI interface  (8MHz)
 #define SPI_CS_PIN              (10)     // Which pin to use for SPI CS with CAN bus interface
 
 #define FLAP_DIRECTION_PIN       (9)
@@ -103,7 +103,8 @@ typedef struct {
 statustiming mystat;
 
 
-// These values follow ASCOM Alpaca 'shutterstatus' states, with the addition of heartbeat and stop
+// These values follow ASCOM Alpaca 'shutterstatus' states,
+// with the addition of heartbeat and stop
 #define OPEN        (0)
 #define CLOSED      (1)
 #define OPENING     (2)
@@ -238,30 +239,34 @@ void readPins() {
   flap.PinState = digitalRead( FLAP_MOVE_DETECT_PIN );
   if( flap.PinState != flap.lastPinState ) {
     flap.lastPinState = flap.PinState;
-    flap.lastPulse = millis();
-    if( flap.state == OPENING )
-      flap.extended -= PULSE_LEN;
-    else
-      flap.extended += PULSE_LEN;
 
-    if( flap.extended > FLAP_MAX_EXTEND )
-      flap.extended = FLAP_MAX_EXTEND;
-    if( flap.extended < 0 )
-      flap.extended = 0;
+    if( flap.state == OPENING || flap.state == CLOSING ) {
+      // Only processing the pin flip if the flap is in-motion,
+      // otherwise, it's errant and should be ignored.
+      flap.lastPulse = millis();
+      if( flap.state == OPENING )
+        flap.extended -= PULSE_LEN;
+      else
+        flap.extended += PULSE_LEN;
 
-    if( debug ) {
-      Serial.print("Pulse: ");
-      Serial.print(flap.lastPulse);
-      Serial.print(", ");
-      
-      Serial.print(flap.extended);
-      Serial.print(", State: ");
-      Serial.print(flap.state);
-      Serial.print(", Desired State: ");
-      Serial.print(flap.desiredState);
-      Serial.println();
+      if( flap.extended > FLAP_MAX_EXTEND )
+        flap.extended = FLAP_MAX_EXTEND;
+      if( flap.extended < 0 )
+        flap.extended = 0;
+
+      if( debug ) {
+        Serial.print("Pulse: ");
+        Serial.print(flap.lastPulse);
+        Serial.print(", ");
+
+        Serial.print(flap.extended);
+        Serial.print(", State: ");
+        Serial.print(flap.state);
+        Serial.print(", Desired State: ");
+        Serial.print(flap.desiredState);
+        Serial.println();
+      }
     }
-
   } else {
     if( flap.lastPulse + PULSE_TIMEOUT < millis() ) {
       if( debug && ( flap.state == OPENING || flap.state == CLOSING ) ) {
