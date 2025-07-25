@@ -2,8 +2,8 @@
    Astro-Shed Roll-off-Roof Control
      by: Michael J. Kidd <linuxkidd@gmail.com>
      at: https://github.com/linuxkidd/CAN-Bus_RoR_Control
-    Rev: 3.0
-   Date: 2020-10-14
+    Rev: 4.0
+   Date: 2025-07-24
 */
 
 
@@ -12,15 +12,14 @@ bool debug                    = false;  // Enable debug output
 // Uncomment either ENABLE_PLUS_DIRECTION
 //   or OPEN_CLOSE
 // below to indicate how the relays should be controlled
-// #define ENABLE_PLUS_DIRECTION
-#define OPEN_CLOSE
-// #define ENABLE_PLUS_DIRECTION
+// #define OPEN_CLOSE
+#define ENABLE_PLUS_DIRECTION
 
 // Uncomment the line below if you have a flap
 // #define HAVE_FLAP
 
 // Uncomment the line below if you have Pier Safety sensor
-#define HAVE_PIER_SAFETY
+// #define HAVE_PIER_SAFETY
 
 #define SERIAL_ONLY
 
@@ -50,7 +49,7 @@ bool debug                    = false;  // Enable debug output
 #define PIER_SAFE_PIN            (3)
 #endif
 
-#define DOUBLE_LIMIT_FOR_CLOSE
+// #define DOUBLE_LIMIT_FOR_CLOSE
 
 /*
  * If no heartbeat from control or roof nodes for 15 seconds, close the roof
@@ -245,7 +244,8 @@ void loop() {
     && roof.state!=CLOSED
     && roof.state!=CLOSING
     && roof.desiredState!=CLOSED
-    && roof.desiredState!=STOP) {
+    // && roof.desiredState!=STOP
+    ) {
     if(debug)
       Serial.println("Heartbeat timeout - Closing.");
 
@@ -261,7 +261,8 @@ void loop() {
     && roof.state!=CLOSED
     && roof.state!=CLOSING
     && roof.desiredState!=CLOSED
-    && roof.desiredState!=STOP ) {
+    // && roof.desiredState!=STOP 
+    ) {
     unsigned char closed[1] = { CLOSED };
     CAN.sendMsgBuf(FLAP_COMMAND_ID,1,1,closed); // Flap Close Command, just in case it's still alive
     closeRoof();
@@ -339,6 +340,7 @@ void readPins() {
     if(pierpin.last_state == true || pierpin.state_time==0) {
       pierpin.last_state = false;
       pierpin.state_time = millis();
+      sendState();
     }
     if(!roof.isSafe && 
         pierpin.last_state == false && 
@@ -349,6 +351,7 @@ void readPins() {
         closeRoof();
       if ( debug )
         Serial.println("Pier now safe.");
+      sendState();
     }
   } else {
     if(pierpin.last_state == false || pierpin.state_time==0) {
@@ -363,6 +366,7 @@ void readPins() {
       if(roof.state==OPENING || roof.state==CLOSING) {
         stopMotion();
         roof.state=ERR;
+        sendState();
       }
       if ( debug )
         Serial.println("Pier NOT safe.");
@@ -375,19 +379,19 @@ void readPins() {
     openpin.last_state = openpin.state;
     openpin.state_time = millis();
   }
-  if(closedpin.state!=openpin.last_state || closedpin.state_time==0) {
+  if(closedpin.state!=closedpin.last_state || closedpin.state_time==0) {
     closedpin.last_state = closedpin.state;
     closedpin.state_time = millis();
   }
   if(closedpin.state == LOW
 #ifdef DOUBLE_LIMIT_FOR_CLOSE
-    and openpin.state == LOW
+    and openpin.state == HIGH
 #endif
       ) {
 
     if((!roof.isClosed || roof.state!=CLOSED ) &&
-        openpin.state_time > 0 &&
-        openpin.state_time + 500 < millis()){
+        closedpin.state_time > 0 &&
+        closedpin.state_time + 100 < millis()){
       if(debug)
         Serial.println("Roof is CLOSED.");
       roof.isClosed=true;
@@ -397,6 +401,7 @@ void readPins() {
         // be low, giving a false 'CLOSED' status, when the status should be 'OPENING'
         roof.state=CLOSED;
         stopMotion();
+        sendState();
       }
 #ifdef HAVE_PIER_SAFETY
       roof.overrideSafe=0;
@@ -409,6 +414,7 @@ void readPins() {
       roof.isClosed=false;
       if(roof.state!=OPENING)
         roof.state=ERR;
+      sendState();
     }
   }
 
@@ -419,13 +425,14 @@ void readPins() {
       ) {
     if((!roof.isOpen || roof.state!=OPEN ) &&
         openpin.state_time > 0 &&
-        openpin.state_time + 500 < millis()) {
+        openpin.state_time + 100 < millis()) {
       if(debug)
         Serial.println("Roof is OPEN.");
       roof.isOpen=true;
       if(roof.state==OPENING || roof.state==ERR) {
         stopMotion();
         roof.state=OPEN;
+        sendState();
       }
 #ifdef HAVE_PIER_SAFETY
       roof.overrideSafe=0;
@@ -438,6 +445,7 @@ void readPins() {
       roof.isOpen=false;
       if(roof.state!=CLOSING)
         roof.state=ERR;
+      sendState();
     }
   }
 }
